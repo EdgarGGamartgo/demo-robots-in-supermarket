@@ -6,6 +6,9 @@ import React, {
   useLayoutEffect,
 } from "react";
 import PrismaZoom from "react-prismazoom";
+import io, { Socket } from "socket.io-client";
+import axios from "axios";
+
 import { Product } from "../models";
 
 export default function StoreMapComponent(): ReactElement {
@@ -20,29 +23,36 @@ export default function StoreMapComponent(): ReactElement {
     y: 0,
   });
 
-  const onZoomChange = (zoom: number): void => {};
+  const [socket, setSocket] = useState<Socket>();
 
-  const setProductPositionX = (x: number): string => {
-    if (x === 100) return `${Math.floor(mapSize.x - 6)}px`;
-    return `${Math.floor((x * mapSize.x) / 100)}px`;
-  };
+  useEffect(() => {
+    const newSocket = io(`http://${window.location.hostname}:4000`);
+    setSocket(newSocket);
 
-  const setProductPositionY = (y: number): string => {
-    if (y === 100) return `${Math.floor(mapSize.y - 6)}px`;
-    return `${Math.floor((y * mapSize.y) / 100)}px`;
-  };
+    return () => {
+      newSocket.close();
+    };
+  }, [setSocket]);
 
-  useLayoutEffect(() => {
-    const updateSize = () => {
-      setViewportSize([window.innerWidth, window.innerHeight]);
+  useEffect(() => {
+    const productListener = (message: { data: Product }): void => {
+      setProducts((prevMessages: Product[]) => {
+        const newMessages = [...prevMessages];
+        if (message?.data?.id) {
+          const idx = newMessages.findIndex(({ id }) => id === message.data.id);
+          if (idx !== -1) newMessages[idx] = message.data;
+          else newMessages.push(message.data);
+        }
+        return newMessages;
+      });
     };
 
-    window.addEventListener("resize", updateSize);
+    socket?.on?.("product-update", productListener);
 
-    updateSize();
-
-    return () => window.removeEventListener("resize", updateSize);
-  }, []);
+    return () => {
+      socket?.off?.("product-update", productListener);
+    };
+  }, [socket]);
 
   useEffect(() => {
     const x = mapElement?.current?.ref?.current?.clientWidth;
@@ -57,14 +67,37 @@ export default function StoreMapComponent(): ReactElement {
   }, [viewportSize]);
 
   useEffect(() => {
-    setProducts([
-      {
-        id: 1,
-        x: 50,
-        y: 90,
-      },
-    ]);
+    (async () => {
+      const products = await axios.get(
+        `http://${window.location.hostname}:4000`
+      );
+      if (products?.data?.length) setProducts(products.data);
+    })();
   }, []);
+
+  useLayoutEffect(() => {
+    const updateSize = () => {
+      setViewportSize([window.innerWidth, window.innerHeight]);
+    };
+
+    window.addEventListener("resize", updateSize);
+
+    updateSize();
+
+    return () => window.removeEventListener("resize", updateSize);
+  }, []);
+
+  const onZoomChange = (zoom: number): void => {};
+
+  const setProductPositionX = (x: number): string => {
+    if (x === 100) return `${Math.floor(mapSize.x - 6)}px`;
+    return `${Math.floor((x * mapSize.x) / 100)}px`;
+  };
+
+  const setProductPositionY = (y: number): string => {
+    if (y === 100) return `${Math.floor(mapSize.y - 6)}px`;
+    return `${Math.floor((y * mapSize.y) / 100)}px`;
+  };
 
   return (
     <div className="w-screen h-screen bg-blue-900 flex flex-col justify-center items-center">
