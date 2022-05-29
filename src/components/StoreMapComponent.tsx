@@ -1,26 +1,25 @@
-import React, {
+import {
   ReactElement,
   useRef,
   useEffect,
   useState,
   useLayoutEffect,
-  useMemo,
 } from "react";
 import PrismaZoom from "react-prismazoom";
 import io, { Socket } from "socket.io-client";
-import axios from "axios";
 import { useQuery } from "react-query";
-import { useLocation } from "react-router-dom";
 
 import { Product } from "../models";
-
-function useCurrentLocation() {
-  const { search } = useLocation();
-  return useMemo(() => new URLSearchParams(search), [search]);
-}
+import { useCurrentLocation } from "../hooks/UseCurrentLocation";
+import { axiosGetProducts } from "../services/StoreMapServices";
+import Modal from "./Modal";
 
 export default function StoreMapComponent(): ReactElement {
   const mapElement = useRef<any>(null);
+
+  const [showModal, setShowModal] = useState<any>(false);
+
+  const [currentHoveredProduct, setCurrentHoveredProduct] = useState<Product>();
 
   const [products, setProducts] = useState<Product[][]>([]);
 
@@ -50,20 +49,6 @@ export default function StoreMapComponent(): ReactElement {
     setPageLimit(pageLimit);
     setSkip(skip);
     return await axiosGetProducts(take, skip);
-  };
-
-  const axiosGetProducts = async (
-    take: number,
-    skip: number = 0
-  ): Promise<{
-    data: Product[];
-    count: number;
-  }> => {
-    return (
-      await axios.get(
-        `http://${window.location.hostname}:4000?take=${take}&skip=${skip}`
-      )
-    ).data;
   };
 
   const { data, isError, isLoading } = useQuery("products", fetchProducts);
@@ -185,10 +170,29 @@ export default function StoreMapComponent(): ReactElement {
     mapElement.current.zoomIn(1);
   };
 
+  const setHoveredProduct = (x: number, y: number, id: number) => {
+    setCurrentHoveredProduct({ id, x, y });
+  };
+
   return (
     <>
+      <Modal showModal={showModal} setShowModal={setShowModal} />
       <div className="w-screen h-screen bg-blue-900 flex flex-col justify-center items-center">
-        <div className="bg-indigo-900 w-[90%] h-[90%] relative overflow-hidden">
+        {currentHoveredProduct?.id && (
+          <div className="inline-flex mb-[1em]">
+            <span className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full">
+              X: {`${currentHoveredProduct?.x ?? ""}`}. Y:{" "}
+              {`${currentHoveredProduct?.y ?? ""}`}.{" "}
+              <button
+                onClick={() => setShowModal(true)}
+                className="text-gray-800 font-bold"
+              >
+                See details.
+              </button>
+            </span>
+          </div>
+        )}
+        <div className="bg-indigo-900 w-[90%] h-[86%] relative overflow-hidden">
           <PrismaZoom
             className="bg-neutral-400 w-[100%] h-[100%]"
             ref={mapElement}
@@ -197,10 +201,13 @@ export default function StoreMapComponent(): ReactElement {
             {!isLoading &&
               !isError &&
               products.map((product) =>
-                product.map(({ x, y }, i) => (
+                product.map(({ x, y, id }, i) => (
                   <span
+                    data-tip
+                    data-for={`${id}`}
                     key={i}
-                    className={`absolute h-[6px] w-[6px] bg-sky-800 rounded-full`}
+                    onMouseOver={() => setHoveredProduct(x, y, id)}
+                    className={`absolute h-[6px] w-[6px] bg-sky-800 rounded-full cursor-pointer`}
                     style={{
                       left: setProductPositionX(x),
                       bottom: setProductPositionY(y),
