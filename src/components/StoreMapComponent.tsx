@@ -1,4 +1,4 @@
-import {
+import React, {
   ReactElement,
   useRef,
   useEffect,
@@ -9,17 +9,25 @@ import PrismaZoom from "react-prismazoom";
 import io, { Socket } from "socket.io-client";
 import { useQuery } from "react-query";
 
-import { Product } from "../models";
+import { Product, Robot } from "../models";
 import { useCurrentLocation } from "../hooks/UseCurrentLocation";
-import { axiosGetProducts } from "../services/StoreMapServices";
+import {
+  axiosGetProducts,
+  getAllProductsByPosition,
+  getAllRobots,
+} from "../services/StoreMapServices";
 import Modal from "./Modal";
 
 export default function StoreMapComponent(): ReactElement {
   const mapElement = useRef<any>(null);
 
-  const [showModal, setShowModal] = useState<any>(false);
+  const [showModal, setShowModal] = useState<boolean>(false);
+
+  const [showRobotModal, setShowRobotModal] = useState<boolean>(false);
 
   const [currentHoveredProduct, setCurrentHoveredProduct] = useState<Product>();
+
+  const [hoveredRobot, setHoveredRobot] = useState<Robot>();
 
   const [products, setProducts] = useState<Product[][]>([]);
 
@@ -32,13 +40,17 @@ export default function StoreMapComponent(): ReactElement {
 
   const [socket, setSocket] = useState<Socket>();
 
+  const [stackedProducts, setStackedProducts] = useState<Product[]>([]);
+
   const [take, setTake] = useState<number>(0);
   const [skip, setSkip] = useState<number>(0);
   const [pageLimit, setPageLimit] = useState<number>(0);
 
+  const [robots, setRobots] = useState<Robot[]>([]);
+
   let currentLocation = useCurrentLocation();
 
-  const fetchProducts = async (): Promise<{
+  const fetchProductsAndRobots = async (): Promise<{
     data: Product[];
     count: number;
   }> => {
@@ -48,10 +60,15 @@ export default function StoreMapComponent(): ReactElement {
     setTake(take);
     setPageLimit(pageLimit);
     setSkip(skip);
+    const foundRobots = await getAllRobots();
+    setRobots(foundRobots);
     return await axiosGetProducts(take, skip);
   };
 
-  const { data, isError, isLoading } = useQuery("products", fetchProducts);
+  const { data, isError, isLoading } = useQuery(
+    "productsAndRobots",
+    fetchProductsAndRobots
+  );
 
   useEffect(() => {
     if (isError) setProducts([]);
@@ -170,21 +187,42 @@ export default function StoreMapComponent(): ReactElement {
     mapElement.current.zoomIn(1);
   };
 
-  const setHoveredProduct = (x: number, y: number, id: number) => {
+  const setHoveredProduct = async (x: number, y: number, id: number) => {
+    const foundProducts = await getAllProductsByPosition(x, y);
+    setStackedProducts(foundProducts);
     setCurrentHoveredProduct({ id, x, y });
   };
 
   return (
     <>
-      <Modal showModal={showModal} setShowModal={setShowModal} />
+      <Modal
+        showModal={showModal}
+        setShowModal={setShowModal}
+        stackedProducts={stackedProducts}
+      />
+      <Modal
+        showModal={showRobotModal}
+        setShowModal={setShowRobotModal}
+        robot={hoveredRobot}
+      />
       <div className="w-screen h-screen bg-blue-900 flex flex-col justify-center items-center">
         {currentHoveredProduct?.id && (
           <div className="inline-flex mb-[1em]">
-            <span className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-full">
-              X: {`${currentHoveredProduct?.x ?? ""}`}. Y:{" "}
+            <span className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-l">
+              PRODUCT(S): X: {`${currentHoveredProduct?.x ?? ""}`}. Y:{" "}
               {`${currentHoveredProduct?.y ?? ""}`}.{" "}
               <button
                 onClick={() => setShowModal(true)}
+                className="text-gray-800 font-bold"
+              >
+                See details.
+              </button>
+            </span>
+            <span className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-r">
+              ROBOT: X: {`${hoveredRobot?.x ?? "Not selected"}`}. Y:{" "}
+              {`${hoveredRobot?.y ?? "Not selected"}`}.{" "}
+              <button
+                onClick={() => setShowRobotModal(true)}
                 className="text-gray-800 font-bold"
               >
                 See details.
@@ -203,8 +241,6 @@ export default function StoreMapComponent(): ReactElement {
               products.map((product) =>
                 product.map(({ x, y, id }, i) => (
                   <span
-                    data-tip
-                    data-for={`${id}`}
                     key={i}
                     onMouseOver={() => setHoveredProduct(x, y, id)}
                     className={`absolute h-[6px] w-[6px] bg-sky-800 rounded-full cursor-pointer`}
@@ -215,6 +251,19 @@ export default function StoreMapComponent(): ReactElement {
                   ></span>
                 ))
               )}
+            {!isLoading &&
+              !isError &&
+              robots.map((robot, i) => (
+                <span
+                  key={i}
+                  onMouseOver={() => setHoveredRobot(robot)}
+                  className={`absolute h-[6px] w-[6px] bg-red-800 rounded-full cursor-pointer`}
+                  style={{
+                    left: setProductPositionX(robot.x),
+                    bottom: setProductPositionY(robot.y),
+                  }}
+                ></span>
+              ))}
             {!isError && isLoading ? (
               <span
                 className={`absolute text-lg  bg-sky-800 rounded-full p-[0.8em]`}
