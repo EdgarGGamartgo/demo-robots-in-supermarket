@@ -43,9 +43,9 @@ export default function StoreMapComponent(): ReactElement {
     data: Product[];
     count: number;
   }> => {
-    const take = Number(currentLocation?.get?.("take") ?? 0);
+    const take = Number(currentLocation?.get?.("take") ?? 1000);
     const skip = Number(currentLocation?.get?.("skip") ?? 0);
-    const pageLimit = Number(currentLocation?.get?.("pageLimit") ?? 0);
+    const pageLimit = Number(currentLocation?.get?.("pageLimit") ?? 1);
     setTake(take);
     setPageLimit(pageLimit);
     setSkip(skip);
