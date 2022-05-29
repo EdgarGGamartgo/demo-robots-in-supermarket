@@ -167,8 +167,6 @@ export default function StoreMapComponent(): ReactElement {
     return () => window.removeEventListener("resize", updateSize);
   }, []);
 
-  const onZoomChange = (zoom: number): void => {};
-
   const setProductPositionX = (x: number): string => {
     if (x === 100) return `${Math.floor(mapSize.x - 6)}px`;
     return `${Math.floor((x * mapSize.x) / 100)}px`;
@@ -195,21 +193,22 @@ export default function StoreMapComponent(): ReactElement {
             className="bg-neutral-400 w-[100%] h-[100%]"
             ref={mapElement}
             maxZoom={8}
-            onZoomChange={onZoomChange}
           >
-            {products.map((product) =>
-              product.map(({ x, y }, i) => (
-                <span
-                  key={i}
-                  className={`absolute h-[6px] w-[6px] bg-sky-800 rounded-full`}
-                  style={{
-                    left: setProductPositionX(x),
-                    bottom: setProductPositionY(y),
-                  }}
-                ></span>
-              ))
-            )}
-            {isLoading ? (
+            {!isLoading &&
+              !isError &&
+              products.map((product) =>
+                product.map(({ x, y }, i) => (
+                  <span
+                    key={i}
+                    className={`absolute h-[6px] w-[6px] bg-sky-800 rounded-full`}
+                    style={{
+                      left: setProductPositionX(x),
+                      bottom: setProductPositionY(y),
+                    }}
+                  ></span>
+                ))
+              )}
+            {!isError && isLoading ? (
               <span
                 className={`absolute text-lg  bg-sky-800 rounded-full p-[0.8em]`}
                 style={{
@@ -218,6 +217,17 @@ export default function StoreMapComponent(): ReactElement {
                 }}
               >
                 Loading...
+              </span>
+            ) : null}
+            {!isLoading && isError ? (
+              <span
+                className={`absolute text-lg  bg-red-800 rounded-full p-[0.8em]`}
+                style={{
+                  left: setProductPositionX(40),
+                  bottom: setProductPositionY(50),
+                }}
+              >
+                Error loading map. Please try again later.
               </span>
             ) : null}
           </PrismaZoom>
