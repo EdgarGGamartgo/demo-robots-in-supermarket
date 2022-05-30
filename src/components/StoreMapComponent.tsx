@@ -57,10 +57,15 @@ export default function StoreMapComponent(): ReactElement {
     const take = Number(currentLocation?.get?.("take") ?? 1000);
     const skip = Number(currentLocation?.get?.("skip") ?? 0);
     const pageLimit = Number(currentLocation?.get?.("pageLimit") ?? 1);
-    setTake(take);
-    setPageLimit(pageLimit);
+    const numberOfRobots = Number(
+      currentLocation?.get?.("numberOfRobots") ?? 1
+    );
+    setTake(take > 10000 ? 10000 : take);
+    setPageLimit(pageLimit > 10 ? 10 : pageLimit);
     setSkip(skip);
-    const foundRobots = await getAllRobots();
+    const foundRobots = await getAllRobots(
+      numberOfRobots > 50 ? 50 : numberOfRobots
+    );
     setRobots(foundRobots);
     return await axiosGetProducts(take, skip);
   };
@@ -138,11 +143,27 @@ export default function StoreMapComponent(): ReactElement {
       });
     };
 
+    const robotsStatusListener = (message: { data: Robot }): void => {
+      setRobots((prevRobots: Robot[]) => {
+        let newRobots = [...prevRobots];
+        if (message?.data?.id) {
+          const idx = newRobots.findIndex(({ id }) => id === message.data?.id);
+          if (idx !== -1) {
+            newRobots[idx] = message.data;
+          } else newRobots.push(message.data);
+        }
+        return newRobots;
+      });
+    };
+
+    socket?.on?.("robots-update", robotsStatusListener);
     socket?.on?.("product-update", productListener);
     socket?.on?.("product-delete", productDeleteListener);
 
     return () => {
+      socket?.off?.("robots-update", robotsStatusListener);
       socket?.off?.("product-update", productListener);
+      socket?.off?.("product-delete", productDeleteListener);
     };
   }, [socket]);
 

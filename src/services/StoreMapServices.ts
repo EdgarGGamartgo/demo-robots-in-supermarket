@@ -30,9 +30,14 @@ export const getAllProductsByPosition = async (
   );
 };
 
-export const getAllRobots = async (): Promise<Robot[]> => {
+export const getAllRobots = async (
+  numberOfRobots: number
+): Promise<Robot[]> => {
   return (
-    (await axios.get(`http://${window.location.hostname}:4000/robots`))?.data ??
-    []
+    (
+      await axios.get(
+        `http://${window.location.hostname}:4000/robots?numberOfRobots=${numberOfRobots}`
+      )
+    )?.data ?? []
   );
 };
