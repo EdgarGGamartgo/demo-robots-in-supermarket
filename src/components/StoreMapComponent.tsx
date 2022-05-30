@@ -227,7 +227,7 @@ export default function StoreMapComponent(): ReactElement {
         robot={hoveredRobot}
       />
       <div className="w-screen h-screen bg-blue-900 flex flex-col justify-center items-center">
-        {currentHoveredProduct?.id && (
+        {(currentHoveredProduct?.id || hoveredRobot?.id) && (
           <div className="inline-flex mb-[1em]">
             <span className="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-l">
               PRODUCT(S): X: {`${currentHoveredProduct?.x ?? ""}`}. Y:{" "}
